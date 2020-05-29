@@ -30,17 +30,10 @@ class BookDtoDao(
 
   private val b = Tables.BOOK
   private val m = Tables.MEDIA
-  private val p = Tables.MEDIA_PAGE
   private val d = Tables.BOOK_METADATA
   private val a = Tables.BOOK_METADATA_AUTHOR
 
   private val mediaFields = m.fields().filterNot { it.name == m.THUMBNAIL.name }.toTypedArray()
-  private val groupFields = arrayOf(
-    *b.fields(),
-    *mediaFields,
-    *d.fields(),
-    *a.fields()
-  )
 
   private val sorts = mapOf(
     "metadata.numberSort" to d.NUMBER_SORT,
@@ -63,7 +56,6 @@ class BookDtoDao(
 
     val dtos = selectBase()
       .where(conditions)
-      .groupBy(*groupFields)
       .orderBy(orderBy)
       .limit(pageable.pageSize)
       .offset(pageable.offset)
@@ -79,7 +71,6 @@ class BookDtoDao(
   override fun findByIdOrNull(bookId: Long): BookDto? =
     selectBase()
       .where(b.ID.eq(bookId))
-      .groupBy(*groupFields)
       .fetchAndMap()
       .firstOrNull()
 
@@ -99,7 +90,6 @@ class BookDtoDao(
 
     return selectBase()
       .where(b.SERIES_ID.eq(seriesId))
-      .groupBy(*groupFields)
       .orderBy(d.NUMBER_SORT.let { if (next) it.asc() else it.desc() })
       .seek(numberSort)
       .limit(1)
@@ -108,23 +98,24 @@ class BookDtoDao(
   }
 
   private fun selectBase() =
-    dsl.select(*groupFields)
-      .select(DSL.count(p.NUMBER).`as`("pageCount"))
-      .from(b)
+    dsl.select(
+      *b.fields(),
+      *mediaFields,
+      *d.fields(),
+      *a.fields()
+    ).from(b)
       .leftJoin(m).on(b.ID.eq(m.BOOK_ID))
-      .leftJoin(p).on(m.BOOK_ID.eq(p.BOOK_ID))
       .leftJoin(d).on(b.ID.eq(d.BOOK_ID))
       .leftJoin(a).on(d.BOOK_ID.eq(a.BOOK_ID))
 
   private fun ResultQuery<Record>.fetchAndMap() =
     fetchGroups(
-      { it.into(*b.fields(), *mediaFields, *d.fields(), DSL.field("pageCount")) }, { it.into(a) }
+      { it.into(*b.fields(), *mediaFields, *d.fields()) }, { it.into(a) }
     ).map { (r, ar) ->
       val br = r.into(b)
       val mr = r.into(m)
       val dr = r.into(d)
-      val pageCount = r["pageCount"] as Int
-      br.toDto(mr.toDto(pageCount), dr.toDto(ar))
+      br.toDto(mr.toDto(), dr.toDto(ar))
     }
 
   private fun BookSearch.toCondition(): Condition {
@@ -154,11 +145,11 @@ class BookDtoDao(
       metadata = metadata
     )
 
-  private fun MediaRecord.toDto(pageCount: Int) =
+  private fun MediaRecord.toDto() =
     MediaDto(
       status = status,
       mediaType = mediaType ?: "",
-      pagesCount = pageCount,
+      pagesCount = pageCount.toInt(),
       comment = comment ?: ""
     )
 

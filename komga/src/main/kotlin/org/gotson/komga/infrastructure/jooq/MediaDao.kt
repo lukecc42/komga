@@ -56,6 +56,7 @@ class MediaDao(
           .set(m.MEDIA_TYPE, media.mediaType)
           .set(m.THUMBNAIL, media.thumbnail)
           .set(m.COMMENT, media.comment)
+          .set(m.PAGE_COUNT, media.pages.size.toLong())
           .execute()
 
         insertPages(this, media)
@@ -94,6 +95,7 @@ class MediaDao(
           .set(m.MEDIA_TYPE, media.mediaType)
           .set(m.THUMBNAIL, media.thumbnail)
           .set(m.COMMENT, media.comment)
+          .set(m.PAGE_COUNT, media.pages.size.toLong())
           .set(m.LAST_MODIFIED_DATE, LocalDateTime.now())
           .where(m.BOOK_ID.eq(media.bookId))
           .execute()
